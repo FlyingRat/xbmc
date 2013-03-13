@@ -38,7 +38,7 @@ class CDVDAudioCodec;
 class IAudioCallback;
 class CDVDAudioCodec;
 
-enum CodecID;
+// enum CodecID; // @FFMPEG113: decrepated, is now automatically defined.
 
 #define DECODE_FLAG_DROP    1
 #define DECODE_FLAG_RESYNC  2

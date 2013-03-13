@@ -38,7 +38,7 @@
 #define         rnd_PACK(ph,pl,nph,npl) ph + nph + (((pl + npl + BYTE_VEC32(0x02))>>2) & BYTE_VEC32(0x03))
 #define         no_rnd_PACK(ph,pl,nph,npl)      ph + nph + (((pl + npl + BYTE_VEC32(0x01))>>2) & BYTE_VEC32(0x03))
 
-/* little endian */
+/* little-endian */
 #define         MERGE1(a,b,ofs) (ofs==0)?a:( ((a)>>(8*ofs))|((b)<<(32-8*ofs)) )
 #define         MERGE2(a,b,ofs) (ofs==3)?b:( ((a)>>(8*(ofs+1)))|((b)<<(32-8*(ofs+1))) )
 /* big
@@ -331,7 +331,7 @@ DEFFUNC(avg,no_rnd,xy,16,OP_XY,PACK)
 
 #endif
 
-void dsputil_init_align(DSPContext* c, AVCodecContext *avctx)
+void ff_dsputil_init_align(DSPContext* c, AVCodecContext *avctx)
 {
         const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
@@ -434,7 +434,6 @@ void dsputil_init_align(DSPContext* c, AVCodecContext *avctx)
     c->put_mspel_pixels_tab[7]= put_mspel8_mc32_sh4;
 
     c->gmc1 = gmc1_c;
-    c->gmc = gmc_c;
 
 #endif
 }

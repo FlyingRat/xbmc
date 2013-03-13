@@ -3,7 +3,6 @@ LIBAVCODEC_$MAJOR {
                 audio_resample;
                 audio_resample_close;
                 #deprecated, remove after next bump
-                img_get_alpha_info;
                 dsputil_init;
                 ff_find_pix_fmt;
                 ff_framenum_to_drop_timecode;
@@ -27,5 +26,7 @@ LIBAVCODEC_$MAJOR {
                 ff_jpeg_fdct*;
                 #XBMC's configure checks for ff_vdpau_vc1_decode_picture()
                 ff_vdpau_vc1_decode_picture;
+                ff_dnxhd_get_cid_table;
+                ff_dnxhd_cid_table;
         local:  *;
 };

@@ -27,16 +27,16 @@
 #include "bytestream.h"
 #include "dsputil.h"
 
-typedef struct {
+typedef struct roq_cell {
     unsigned char y[4];
     unsigned char u, v;
 } roq_cell;
 
-typedef struct {
+typedef struct roq_qcell {
     int idx[4];
 } roq_qcell;
 
-typedef struct {
+typedef struct motion_vect {
     int d[2];
 } motion_vect;
 
@@ -45,7 +45,6 @@ struct RoqTempData;
 typedef struct RoqContext {
 
     AVCodecContext *avctx;
-    DSPContext dsp;
     AVFrame frames[2];
     AVFrame *last_frame;
     AVFrame *current_frame;
@@ -69,7 +68,7 @@ typedef struct RoqContext {
 
     unsigned int framesSinceKeyframe;
 
-    AVFrame *frame_to_enc;
+    const AVFrame *frame_to_enc;
     uint8_t *out_buf;
     struct RoqTempData *tmpData;
 } RoqContext;

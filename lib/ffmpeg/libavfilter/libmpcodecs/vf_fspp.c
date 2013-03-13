@@ -497,14 +497,14 @@ static int config(struct vf_instance *vf,
     //this can also be avoided, see above
     vf->priv->src = (uint8_t*)av_malloc(vf->priv->temp_stride*h*sizeof(uint8_t));
 
-    return vf_next_config(vf,width,height,d_width,d_height,flags,outfmt);
+    return ff_vf_next_config(vf,width,height,d_width,d_height,flags,outfmt);
 }
 
 static void get_image(struct vf_instance *vf, mp_image_t *mpi)
 {
     if(mpi->flags&MP_IMGFLAG_PRESERVE) return; // don't change
     // ok, we can do pp in-place (or pp disabled):
-    vf->dmpi=vf_get_image(vf->next,mpi->imgfmt,
+    vf->dmpi=ff_vf_get_image(vf->next,mpi->imgfmt,
                           mpi->type, mpi->flags, mpi->width, mpi->height);
     mpi->planes[0]=vf->dmpi->planes[0];
     mpi->stride[0]=vf->dmpi->stride[0];
@@ -523,11 +523,11 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts)
     mp_image_t *dmpi;
     if(!(mpi->flags&MP_IMGFLAG_DIRECT)){
         // no DR, so get a new image! hope we'll get DR buffer:
-        dmpi=vf_get_image(vf->next,mpi->imgfmt,
+        dmpi=ff_vf_get_image(vf->next,mpi->imgfmt,
                           MP_IMGTYPE_TEMP,
                           MP_IMGFLAG_ACCEPT_STRIDE|MP_IMGFLAG_PREFER_ALIGNED_STRIDE,
                           mpi->width,mpi->height);
-        vf_clone_mpi_attributes(dmpi, mpi);
+        ff_vf_clone_mpi_attributes(dmpi, mpi);
     }else{
         dmpi=vf->dmpi;
     }
@@ -564,12 +564,12 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts)
     }
 
 #if HAVE_MMX
-    if(gCpuCaps.hasMMX) __asm__ volatile ("emms\n\t");
+    if(ff_gCpuCaps.hasMMX) __asm__ volatile ("emms\n\t");
 #endif
 #if HAVE_MMX2
-    if(gCpuCaps.hasMMX2) __asm__ volatile ("sfence\n\t");
+    if(ff_gCpuCaps.hasMMX2) __asm__ volatile ("sfence\n\t");
 #endif
-    return vf_next_put_image(vf,dmpi, pts);
+    return ff_vf_next_put_image(vf,dmpi, pts);
 }
 
 static void uninit(struct vf_instance *vf)
@@ -605,7 +605,7 @@ static int query_format(struct vf_instance *vf, unsigned int fmt)
     case IMGFMT_444P:
     case IMGFMT_422P:
     case IMGFMT_411P:
-        return vf_next_query_format(vf,fmt);
+        return ff_vf_next_query_format(vf,fmt);
     }
     return 0;
 }
@@ -620,7 +620,7 @@ static int control(struct vf_instance *vf, int request, void* data)
         if (vf->priv->log2_count < 4) vf->priv->log2_count=4;
         return CONTROL_TRUE;
     }
-    return vf_next_control(vf,request,data);
+    return ff_vf_next_control(vf,request,data);
 }
 
 static int vf_open(vf_instance_t *vf, char *args)
@@ -637,7 +637,7 @@ static int vf_open(vf_instance_t *vf, char *args)
     vf->control= control;
     vf->priv=av_mallocz(sizeof(struct vf_priv_s));//assumes align 16 !
 
-    init_avcodec();
+    ff_init_avcodec();
 
     //vf->priv->avctx= avcodec_alloc_context();
     //dsputil_init(&vf->priv->dsp, vf->priv->avctx);
@@ -679,7 +679,7 @@ static int vf_open(vf_instance_t *vf, char *args)
     return 1;
 }
 
-const vf_info_t vf_info_fspp = {
+const vf_info_t ff_vf_info_fspp = {
     "fast simple postprocess",
     "fspp",
     "Michael Niedermayer, Nikolaj Poroshin",
@@ -710,8 +710,8 @@ const vf_info_t vf_info_fspp = {
 #if HAVE_MMX
 
 DECLARE_ASM_CONST(8, uint64_t, MM_FIX_0_382683433)=FIX64(0.382683433, 14);
-DECLARE_ASM_CONST(8, uint64_t, MM_FIX_0_541196100)=FIX64(0.541196100, 14);
-DECLARE_ASM_CONST(8, uint64_t, MM_FIX_0_707106781)=FIX64(0.707106781, 14);
+DECLARE_ALIGNED(8, uint64_t, ff_MM_FIX_0_541196100)=FIX64(0.541196100, 14);
+DECLARE_ALIGNED(8, uint64_t, ff_MM_FIX_0_707106781)=FIX64(0.707106781, 14);
 DECLARE_ASM_CONST(8, uint64_t, MM_FIX_1_306562965)=FIX64(1.306562965, 14);
 
 DECLARE_ASM_CONST(8, uint64_t, MM_FIX_1_414213562_A)=FIX64(1.414213562, 14);
@@ -917,7 +917,7 @@ static void column_fidct_mmx(int16_t* thr_adr,  DCTELEM *data,  DCTELEM *output,
         "paddusw 0*16(%%"REG_d"), %%mm5    \n\t"
         "paddusw %%mm6, %%mm2          \n\t"
 
-        "pmulhw "MANGLE(MM_FIX_0_707106781)", %%mm7 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_707106781)", %%mm7 \n\t"
         //
         "paddw 0*16(%%"REG_d"), %%mm5      \n\t"
         "paddw %%mm6, %%mm2            \n\t"
@@ -997,13 +997,13 @@ static void column_fidct_mmx(int16_t* thr_adr,  DCTELEM *data,  DCTELEM *output,
         "pmulhw "MANGLE(MM_FIX_0_382683433)", %%mm3 \n\t"
         "psllw $2, %%mm4              \n\t"
 
-        "pmulhw "MANGLE(MM_FIX_0_541196100)", %%mm7 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_541196100)", %%mm7 \n\t"
         "psllw $2, %%mm2              \n\t"
 
         "pmulhw "MANGLE(MM_FIX_1_306562965)", %%mm4 \n\t"
         "paddw %%mm1, %%mm5            \n\t" //'t1
 
-        "pmulhw "MANGLE(MM_FIX_0_707106781)", %%mm2 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_707106781)", %%mm2 \n\t"
         "psubw %%mm1, %%mm6            \n\t" //'t2
         // t7 't12 't11 t4 t6 - 't13 't10   ---
 
@@ -1275,7 +1275,7 @@ static void column_fidct_mmx(int16_t* thr_adr,  DCTELEM *data,  DCTELEM *output,
         "paddusw 1*8+0*16(%%"REG_d"), %%mm5 \n\t"
         "paddusw %%mm6, %%mm2          \n\t"
 
-        "pmulhw "MANGLE(MM_FIX_0_707106781)", %%mm7 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_707106781)", %%mm7 \n\t"
         //
         "paddw 1*8+0*16(%%"REG_d"), %%mm5  \n\t"
         "paddw %%mm6, %%mm2            \n\t"
@@ -1355,13 +1355,13 @@ static void column_fidct_mmx(int16_t* thr_adr,  DCTELEM *data,  DCTELEM *output,
         "pmulhw "MANGLE(MM_FIX_0_382683433)", %%mm3 \n\t"
         "psllw $2, %%mm4              \n\t"
 
-        "pmulhw "MANGLE(MM_FIX_0_541196100)", %%mm7 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_541196100)", %%mm7 \n\t"
         "psllw $2, %%mm2              \n\t"
 
         "pmulhw "MANGLE(MM_FIX_1_306562965)", %%mm4 \n\t"
         "paddw %%mm1, %%mm5            \n\t" //'t1
 
-        "pmulhw "MANGLE(MM_FIX_0_707106781)", %%mm2 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_707106781)", %%mm2 \n\t"
         "psubw %%mm1, %%mm6            \n\t" //'t2
         // t7 't12 't11 t4 t6 - 't13 't10   ---
 
@@ -2006,7 +2006,7 @@ static void row_fdct_mmx(DCTELEM *data,  const uint8_t *pixels,  int line_size, 
         "psllw $2, %%mm1              \n\t"
         "paddw %%mm5, %%mm6            \n\t" //t10
 
-        "pmulhw "MANGLE(MM_FIX_0_707106781)", %%mm1 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_707106781)", %%mm1 \n\t"
         "paddw %%mm6, %%mm7            \n\t" //d2
 
         "psubw %%mm2, %%mm6            \n\t" //d3
@@ -2049,13 +2049,13 @@ static void row_fdct_mmx(DCTELEM *data,  const uint8_t *pixels,  int line_size, 
         "movq 0*8+%3, %%mm2           \n\t"
         "psllw $2, %%mm4              \n\t" //t11
 
-        "pmulhw "MANGLE(MM_FIX_0_707106781)", %%mm4 \n\t" //z3
+        "pmulhw "MANGLE(ff_MM_FIX_0_707106781)", %%mm4 \n\t" //z3
         "paddw %%mm2, %%mm1            \n\t"
 
         "psllw $2, %%mm1              \n\t" //t12
         "movq %%mm3, %%mm0             \n\t"
 
-        "pmulhw "MANGLE(MM_FIX_0_541196100)", %%mm0 \n\t"
+        "pmulhw "MANGLE(ff_MM_FIX_0_541196100)", %%mm0 \n\t"
         "psubw %%mm1, %%mm3            \n\t"
 
         "pmulhw "MANGLE(MM_FIX_0_382683433)", %%mm3 \n\t" //z5

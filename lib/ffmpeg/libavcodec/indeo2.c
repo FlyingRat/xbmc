@@ -23,11 +23,13 @@
  * @file
  * Intel Indeo 2 decoder.
  */
+
 #define BITSTREAM_READER_LE
+#include "libavutil/attributes.h"
 #include "avcodec.h"
 #include "get_bits.h"
 #include "indeo2data.h"
-#include "libavutil/common.h"
+#include "mathops.h"
 
 typedef struct Ir2Context{
     AVCodecContext *avctx;
@@ -136,14 +138,14 @@ static int ir2_decode_plane_inter(Ir2Context *ctx, int width, int height, uint8_
 }
 
 static int ir2_decode_frame(AVCodecContext *avctx,
-                        void *data, int *data_size,
+                        void *data, int *got_frame,
                         AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
     Ir2Context * const s = avctx->priv_data;
     AVFrame *picture = data;
-    AVFrame * const p= (AVFrame*)&s->picture;
+    AVFrame * const p = &s->picture;
     int start;
 
     p->reference = 3;
@@ -165,7 +167,7 @@ static int ir2_decode_frame(AVCodecContext *avctx,
     /* decide whether frame uses deltas or not */
 #ifndef BITSTREAM_READER_LE
     for (i = 0; i < buf_size; i++)
-        buf[i] = av_reverse[buf[i]];
+        buf[i] = ff_reverse[buf[i]];
 #endif
 
     init_get_bits(&s->gb, buf + start, (buf_size - start) * 8);
@@ -188,8 +190,8 @@ static int ir2_decode_frame(AVCodecContext *avctx,
                          s->picture.data[1], s->picture.linesize[1], ir2_luma_table);
     }
 
-    *picture= *(AVFrame*)&s->picture;
-    *data_size = sizeof(AVPicture);
+    *picture   = s->picture;
+    *got_frame = 1;
 
     return buf_size;
 }
@@ -201,7 +203,7 @@ static av_cold int ir2_decode_init(AVCodecContext *avctx){
     avcodec_get_frame_defaults(&ic->picture);
     ic->avctx = avctx;
 
-    avctx->pix_fmt= PIX_FMT_YUV410P;
+    avctx->pix_fmt= AV_PIX_FMT_YUV410P;
 
     ir2_vlc.table = vlc_tables;
     ir2_vlc.table_allocated = 1 << CODE_VLC_BITS;
@@ -231,11 +233,11 @@ static av_cold int ir2_decode_end(AVCodecContext *avctx){
 AVCodec ff_indeo2_decoder = {
     .name           = "indeo2",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_INDEO2,
+    .id             = AV_CODEC_ID_INDEO2,
     .priv_data_size = sizeof(Ir2Context),
     .init           = ir2_decode_init,
     .close          = ir2_decode_end,
     .decode         = ir2_decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("Intel Indeo 2"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Intel Indeo 2"),
 };

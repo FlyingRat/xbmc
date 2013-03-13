@@ -26,7 +26,7 @@
 /* I really don't want to include ffmpeg headers here, could */
 /* potentially interfere with libmpeg2's, so let's just define this */
 #ifndef _LINUX
-const int CODEC_ID_MPEG1VIDEO = 1;
+// const int CODEC_ID_MPEG1VIDEO = 1; // @FFMPEG113: decrepated, automatically defined in old_codec_ids.h
 #endif
 
 enum MPEGProfile

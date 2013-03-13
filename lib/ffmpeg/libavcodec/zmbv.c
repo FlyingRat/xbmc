@@ -27,8 +27,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "libavutil/common.h"
 #include "libavutil/intreadwrite.h"
 #include "avcodec.h"
+#include "internal.h"
 
 #include <zlib.h>
 
@@ -396,23 +398,23 @@ static int zmbv_decode_intra(ZmbvContext *c)
     return 0;
 }
 
-static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPacket *avpkt)
+static int decode_frame(AVCodecContext *avctx, void *data, int *got_frame, AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
     ZmbvContext * const c = avctx->priv_data;
     int zret = Z_OK; // Zlib return code
     int len = buf_size;
-    int hi_ver, lo_ver;
+    int hi_ver, lo_ver, ret;
 
     if (c->pic.data[0])
             avctx->release_buffer(avctx, &c->pic);
 
     c->pic.reference = 3;
     c->pic.buffer_hints = FF_BUFFER_HINTS_VALID;
-    if (avctx->get_buffer(avctx, &c->pic) < 0) {
+    if ((ret = ff_get_buffer(avctx, &c->pic)) < 0) {
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
-        return -1;
+        return ret;
     }
 
     /* parse header */
@@ -427,6 +429,8 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         c->fmt = buf[3];
         c->bw = buf[4];
         c->bh = buf[5];
+        c->decode_intra = NULL;
+        c->decode_xor = NULL;
 
         buf += 6;
         len -= 6;
@@ -434,19 +438,19 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
                "Flags=%X ver=%i.%i comp=%i fmt=%i blk=%ix%i\n",
                c->flags,hi_ver,lo_ver,c->comp,c->fmt,c->bw,c->bh);
         if (hi_ver != 0 || lo_ver != 1) {
-            av_log(avctx, AV_LOG_ERROR, "Unsupported version %i.%i\n",
-            hi_ver, lo_ver);
-            return -1;
+            av_log_ask_for_sample(avctx, "Unsupported version %i.%i\n",
+                                  hi_ver, lo_ver);
+            return AVERROR_PATCHWELCOME;
         }
         if (c->bw == 0 || c->bh == 0) {
-            av_log(avctx, AV_LOG_ERROR, "Unsupported block size %ix%i\n",
-                   c->bw, c->bh);
-            return -1;
+            av_log_ask_for_sample(avctx, "Unsupported block size %ix%i\n",
+                                  c->bw, c->bh);
+            return AVERROR_PATCHWELCOME;
         }
         if (c->comp != 0 && c->comp != 1) {
-            av_log(avctx, AV_LOG_ERROR, "Unsupported compression type %i\n",
-                   c->comp);
-            return -1;
+            av_log_ask_for_sample(avctx, "Unsupported compression type %i\n",
+                                  c->comp);
+            return AVERROR_PATCHWELCOME;
         }
 
         switch (c->fmt) {
@@ -475,9 +479,9 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
             break;
         default:
             c->decode_xor = NULL;
-            av_log(avctx, AV_LOG_ERROR,
-                   "Unsupported (for now) format %i\n", c->fmt);
-            return -1;
+            av_log_ask_for_sample(avctx, "Unsupported (for now) format %i\n",
+                                  c->fmt);
+            return AVERROR_PATCHWELCOME;
         }
 
         zret = inflateReset(&c->zstream);
@@ -492,24 +496,33 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         c->by = (c->height+ c->bh - 1) / c->bh;
         if (!c->cur || !c->prev)
             return -1;
+        memset(c->cur, 0, avctx->width * avctx->height * (c->bpp / 8));
+        memset(c->prev, 0, avctx->width * avctx->height * (c->bpp / 8));
         c->decode_intra= decode_intra;
     }
 
     if (c->decode_intra == NULL) {
         av_log(avctx, AV_LOG_ERROR, "Error! Got no format or no keyframe!\n");
-        return -1;
+        return AVERROR_INVALIDDATA;
     }
 
     if (c->comp == 0) { //Uncompressed data
+        if (c->decomp_size < len) {
+            av_log(avctx, AV_LOG_ERROR, "decomp buffer too small\n");
+            return AVERROR_INVALIDDATA;
+        }
         memcpy(c->decomp_buf, buf, len);
-        c->decomp_size = 1;
     } else { // ZLIB-compressed data
         c->zstream.total_in = c->zstream.total_out = 0;
-        c->zstream.next_in = buf;
+        c->zstream.next_in = (uint8_t*)buf;
         c->zstream.avail_in = len;
         c->zstream.next_out = c->decomp_buf;
         c->zstream.avail_out = c->decomp_size;
-        inflate(&c->zstream, Z_FINISH);
+        zret = inflate(&c->zstream, Z_SYNC_FLUSH);
+        if (zret != Z_OK && zret != Z_STREAM_END) {
+            av_log(avctx, AV_LOG_ERROR, "inflate error %d\n", zret);
+            return AVERROR_INVALIDDATA;
+        }
         c->decomp_len = c->zstream.total_out;
     }
     if (c->flags & ZMBV_KEYFRAME) {
@@ -590,20 +603,13 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         }
         FFSWAP(uint8_t *, c->cur, c->prev);
     }
-    *data_size = sizeof(AVFrame);
+    *got_frame = 1;
     *(AVFrame*)data = c->pic;
 
     /* always report that the buffer was completely consumed */
     return buf_size;
 }
 
-
-
-/*
- *
- * Init zmbv decoder
- *
- */
 static av_cold int decode_init(AVCodecContext *avctx)
 {
     ZmbvContext * const c = avctx->priv_data;
@@ -620,15 +626,15 @@ static av_cold int decode_init(AVCodecContext *avctx)
     // Needed if zlib unused or init aborted before inflateInit
     memset(&c->zstream, 0, sizeof(z_stream));
 
-    avctx->pix_fmt = PIX_FMT_RGB24;
+    avctx->pix_fmt = AV_PIX_FMT_RGB24;
     c->decomp_size = (avctx->width + 255) * 4 * (avctx->height + 64);
 
     /* Allocate decompression buffer */
     if (c->decomp_size) {
-        if ((c->decomp_buf = av_malloc(c->decomp_size)) == NULL) {
+        if ((c->decomp_buf = av_mallocz(c->decomp_size)) == NULL) {
             av_log(avctx, AV_LOG_ERROR,
                    "Can't allocate decompression buffer.\n");
-            return 1;
+            return AVERROR(ENOMEM);
         }
     }
 
@@ -638,19 +644,12 @@ static av_cold int decode_init(AVCodecContext *avctx)
     zret = inflateInit(&c->zstream);
     if (zret != Z_OK) {
         av_log(avctx, AV_LOG_ERROR, "Inflate init error: %d\n", zret);
-        return 1;
+        return -1;
     }
 
     return 0;
 }
 
-
-
-/*
- *
- * Uninit zmbv decoder
- *
- */
 static av_cold int decode_end(AVCodecContext *avctx)
 {
     ZmbvContext * const c = avctx->priv_data;
@@ -669,12 +668,11 @@ static av_cold int decode_end(AVCodecContext *avctx)
 AVCodec ff_zmbv_decoder = {
     .name           = "zmbv",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_ZMBV,
+    .id             = AV_CODEC_ID_ZMBV,
     .priv_data_size = sizeof(ZmbvContext),
     .init           = decode_init,
     .close          = decode_end,
     .decode         = decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("Zip Motion Blocks Video"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Zip Motion Blocks Video"),
 };
-

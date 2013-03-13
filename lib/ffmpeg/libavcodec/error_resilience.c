@@ -48,28 +48,39 @@ static void decode_mb(MpegEncContext *s, int ref)
 
     ff_init_block_index(s);
     ff_update_block_index(s);
+    s->dest[1] += (16 >> s->chroma_x_shift) - 8;
+    s->dest[2] += (16 >> s->chroma_x_shift) - 8;
 
-    if (CONFIG_H264_DECODER && s->codec_id == CODEC_ID_H264) {
+    if (CONFIG_H264_DECODER && s->codec_id == AV_CODEC_ID_H264) {
         H264Context *h = (void*)s;
         h->mb_xy = s->mb_x + s->mb_y * s->mb_stride;
         memset(h->non_zero_count_cache, 0, sizeof(h->non_zero_count_cache));
-        assert(ref >= 0);
+        av_assert1(ref >= 0);
         /* FIXME: It is possible albeit uncommon that slice references
          * differ between slices. We take the easy approach and ignore
          * it for now. If this turns out to have any relevance in
          * practice then correct remapping should be added. */
         if (ref >= h->ref_count[0])
             ref = 0;
+        if (!h->ref_list[0][ref].f.data[0]) {
+            av_log(s->avctx, AV_LOG_DEBUG, "Reference not available for error concealing\n");
+            ref = 0;
+        }
+        if ((h->ref_list[0][ref].f.reference&3) != 3) {
+            av_log(s->avctx, AV_LOG_DEBUG, "Reference invalid\n");
+            return;
+        }
         fill_rectangle(&s->current_picture.f.ref_index[0][4 * h->mb_xy],
                        2, 2, 2, ref, 1);
         fill_rectangle(&h->ref_cache[0][scan8[0]], 4, 4, 8, ref, 1);
         fill_rectangle(h->mv_cache[0][scan8[0]], 4, 4, 8,
                        pack16to32(s->mv[0][0][0], s->mv[0][0][1]), 4);
-        assert(!FRAME_MBAFF);
+        h->mb_mbaff =
+        h->mb_field_decoding_flag = 0;
         ff_h264_hl_decode_mb(h);
     } else {
         assert(ref == 0);
-        MPV_decode_mb(s, s->block);
+        ff_MPV_decode_mb(s, s->block);
     }
 }
 
@@ -79,9 +90,9 @@ static void decode_mb(MpegEncContext *s, int ref)
  */
 static void set_mv_strides(MpegEncContext *s, int *mv_step, int *stride)
 {
-    if (s->codec_id == CODEC_ID_H264) {
+    if (s->codec_id == AV_CODEC_ID_H264) {
         H264Context *h = (void*)s;
-        assert(s->quarter_sample);
+        av_assert0(s->quarter_sample);
         *mv_step = 4;
         *stride  = h->b_stride;
     } else {
@@ -174,7 +185,12 @@ static void guess_dc(MpegEncContext *s, int16_t *dc, int w,
 {
     int b_x, b_y;
     int16_t  (*col )[4] = av_malloc(stride*h*sizeof( int16_t)*4);
-    uint16_t (*dist)[4] = av_malloc(stride*h*sizeof(uint16_t)*4);
+    uint32_t (*dist)[4] = av_malloc(stride*h*sizeof(uint32_t)*4);
+
+    if(!col || !dist) {
+        av_log(s->avctx, AV_LOG_ERROR, "guess_dc() is out of memory\n");
+        goto fail;
+    }
 
     for(b_y=0; b_y<h; b_y++){
         int color= 1024;
@@ -248,7 +264,7 @@ static void guess_dc(MpegEncContext *s, int16_t *dc, int w,
             weight_sum = 0;
             guess      = 0;
             for (j = 0; j < 4; j++) {
-                int64_t weight  = 256 * 256 * 256 * 16 / dist[b_x + b_y*stride][j];
+                int64_t weight  = 256 * 256 * 256 * 16 / FFMAX(dist[b_x + b_y*stride][j], 1);
                 guess          += weight*(int64_t)col[b_x + b_y*stride][j];
                 weight_sum     += weight;
             }
@@ -256,6 +272,8 @@ static void guess_dc(MpegEncContext *s, int16_t *dc, int w,
             dc[b_x + b_y * stride] = guess;
         }
     }
+
+fail:
     av_freep(&col);
     av_freep(&dist);
 }
@@ -401,7 +419,7 @@ static void v_block_filter(MpegEncContext *s, uint8_t *dst, int w, int h,
 
 static void guess_mv(MpegEncContext *s)
 {
-    uint8_t *fixed = av_malloc(s->mb_stride * s->mb_height);
+    uint8_t *fixed = s->er_temp_buffer;
 #define MV_FROZEN    3
 #define MV_CHANGED   2
 #define MV_UNCHANGED 1
@@ -440,13 +458,8 @@ static void guess_mv(MpegEncContext *s)
     if ((!(s->avctx->error_concealment&FF_EC_GUESS_MVS)) ||
         num_avail <= mb_width / 2) {
         for (mb_y = 0; mb_y < s->mb_height; mb_y++) {
-            s->mb_x = 0;
-            s->mb_y = mb_y;
-            ff_init_block_index(s);
             for (mb_x = 0; mb_x < s->mb_width; mb_x++) {
                 const int mb_xy = mb_x + mb_y * s->mb_stride;
-
-                ff_update_block_index(s);
 
                 if (IS_INTRA(s->current_picture.f.mb_type[mb_xy]))
                     continue;
@@ -468,7 +481,7 @@ static void guess_mv(MpegEncContext *s)
                 decode_mb(s, 0);
             }
         }
-        goto end;
+        return;
     }
 
     for (depth = 0; ; depth++) {
@@ -482,9 +495,6 @@ static void guess_mv(MpegEncContext *s)
 
             changed = 0;
             for (mb_y = 0; mb_y < s->mb_height; mb_y++) {
-                s->mb_x = 0;
-                s->mb_y = mb_y;
-                ff_init_block_index(s);
                 for (mb_x = 0; mb_x < s->mb_width; mb_x++) {
                     const int mb_xy        = mb_x + mb_y * s->mb_stride;
                     int mv_predictor[8][2] = { { 0 } };
@@ -496,15 +506,13 @@ static void guess_mv(MpegEncContext *s)
                     const int mot_index    = (mb_x + mb_y * mot_stride) * mot_step;
                     int prev_x, prev_y, prev_ref;
 
-                    ff_update_block_index(s);
-
                     if ((mb_x ^ mb_y ^ pass) & 1)
                         continue;
 
                     if (fixed[mb_xy] == MV_FROZEN)
                         continue;
-                    assert(!IS_INTRA(s->current_picture.f.mb_type[mb_xy]));
-                    assert(s->last_picture_ptr && s->last_picture_ptr->f.data[0]);
+                    av_assert1(!IS_INTRA(s->current_picture.f.mb_type[mb_xy]));
+                    av_assert1(s->last_picture_ptr && s->last_picture_ptr->f.data[0]);
 
                     j = 0;
                     if (mb_x > 0             && fixed[mb_xy - 1]         == MV_FROZEN)
@@ -620,10 +628,10 @@ skip_mean_and_median:
                     pred_count++;
 
                     if (!fixed[mb_xy] && 0) {
-                        if (s->avctx->codec_id == CODEC_ID_H264) {
+                        if (s->avctx->codec_id == AV_CODEC_ID_H264) {
                             // FIXME
                         } else {
-                            ff_thread_await_progress((AVFrame *) s->last_picture_ptr,
+                            ff_thread_await_progress(&s->last_picture_ptr->f,
                                                      mb_y, 0);
                         }
                         if (!s->last_picture.f.motion_val[0] ||
@@ -720,22 +728,17 @@ skip_last_mv:
                         fixed[mb_xy] = MV_UNCHANGED;
                 }
             }
-
-            // printf(".%d/%d", changed, score_sum); fflush(stdout);
         }
 
         if (none_left)
-            goto end;
+            return;
 
         for (i = 0; i < s->mb_num; i++) {
             int mb_xy = s->mb_index2xy[i];
             if (fixed[mb_xy])
                 fixed[mb_xy] = MV_FROZEN;
         }
-        // printf(":"); fflush(stdout);
     }
-end:
-    av_free(fixed);
 }
 
 static int is_intra_more_likely(MpegEncContext *s)
@@ -753,7 +756,7 @@ static int is_intra_more_likely(MpegEncContext *s)
             undamaged_count++;
     }
 
-    if (s->codec_id == CODEC_ID_H264) {
+    if (s->codec_id == AV_CODEC_ID_H264) {
         H264Context *h = (void*) s;
         if (h->list_count <= 0 || h->ref_count[0] <= 0 ||
             !h->ref_list[0][0].f.data[0])
@@ -793,10 +796,10 @@ static int is_intra_more_likely(MpegEncContext *s)
                 uint8_t *last_mb_ptr = s->last_picture.f.data[0] +
                                        mb_x * 16 + mb_y * 16 * s->linesize;
 
-                if (s->avctx->codec_id == CODEC_ID_H264) {
+                if (s->avctx->codec_id == AV_CODEC_ID_H264) {
                     // FIXME
                 } else {
-                    ff_thread_await_progress((AVFrame *) s->last_picture_ptr,
+                    ff_thread_await_progress(&s->last_picture_ptr->f,
                                              mb_y, 0);
                 }
                 is_intra_likely += s->dsp.sad[0](NULL, last_mb_ptr, mb_ptr                    , s->linesize, 16);
@@ -920,6 +923,12 @@ void ff_er_frame_end(MpegEncContext *s)
                           (s->avctx->skip_top + s->avctx->skip_bottom)) {
         return;
     };
+
+    if (   s->picture_structure == PICT_FRAME
+        && s->current_picture.f.linesize[0] != s->current_picture_ptr->f.linesize[0]) {
+        av_log(s->avctx, AV_LOG_ERROR, "Error concealment not possible, frame not fully initialized\n");
+        return;
+    }
 
     if (s->current_picture.f.motion_val[0] == NULL) {
         av_log(s->avctx, AV_LOG_ERROR, "Warning MVs not available\n");
@@ -1080,8 +1089,8 @@ void ff_er_frame_end(MpegEncContext *s)
         if (error & ER_MV_ERROR)
             mv_error++;
     }
-    av_log(s->avctx, AV_LOG_INFO, "concealing %d DC, %d AC, %d MV errors\n",
-           dc_error, ac_error, mv_error);
+    av_log(s->avctx, AV_LOG_INFO, "concealing %d DC, %d AC, %d MV errors in %c frame\n",
+           dc_error, ac_error, mv_error, av_get_picture_type_char(s->pict_type));
 
     is_intra_likely = is_intra_more_likely(s);
 
@@ -1108,15 +1117,10 @@ void ff_er_frame_end(MpegEncContext *s)
 
     /* handle inter blocks with damaged AC */
     for (mb_y = 0; mb_y < s->mb_height; mb_y++) {
-        s->mb_x = 0;
-        s->mb_y = mb_y;
-        ff_init_block_index(s);
         for (mb_x = 0; mb_x < s->mb_width; mb_x++) {
             const int mb_xy   = mb_x + mb_y * s->mb_stride;
             const int mb_type = s->current_picture.f.mb_type[mb_xy];
             int dir           = !s->last_picture.f.data[0];
-
-            ff_update_block_index(s);
 
             error = s->error_status_table[mb_xy];
 
@@ -1155,15 +1159,10 @@ void ff_er_frame_end(MpegEncContext *s)
     /* guess MVs */
     if (s->pict_type == AV_PICTURE_TYPE_B) {
         for (mb_y = 0; mb_y < s->mb_height; mb_y++) {
-            s->mb_x = 0;
-            s->mb_y = mb_y;
-            ff_init_block_index(s);
             for (mb_x = 0; mb_x < s->mb_width; mb_x++) {
                 int       xy      = mb_x * 2 + mb_y * 2 * s->b8_stride;
                 const int mb_xy   = mb_x + mb_y * s->mb_stride;
                 const int mb_type = s->current_picture.f.mb_type[mb_xy];
-
-                ff_update_block_index(s);
 
                 error = s->error_status_table[mb_xy];
 
@@ -1187,10 +1186,10 @@ void ff_er_frame_end(MpegEncContext *s)
                     int time_pp = s->pp_time;
                     int time_pb = s->pb_time;
 
-                    if (s->avctx->codec_id == CODEC_ID_H264) {
+                    if (s->avctx->codec_id == AV_CODEC_ID_H264) {
                         // FIXME
                     } else {
-                        ff_thread_await_progress((AVFrame *) s->next_picture_ptr, mb_y, 0);
+                        ff_thread_await_progress(&s->next_picture_ptr->f, mb_y, 0);
                     }
                     s->mv[0][0][0] = s->next_picture.f.motion_val[0][xy][0] *  time_pb            / time_pp;
                     s->mv[0][0][1] = s->next_picture.f.motion_val[0][xy][1] *  time_pb            / time_pp;

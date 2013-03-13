@@ -23,9 +23,11 @@
 #if (defined HAVE_CONFIG_H) && (!defined WIN32)
   #include "config.h"
 #endif
-#ifndef _LINUX
-enum StreamType;
-enum CodecID;
+
+#if 1 == 0			// @FFMPEG113: TODO - #if !defined(_LINUX) && !defined(WIN32) 
+// #ifndef _LINUX 		// @FFMPEG113: TODO - #if !defined(_LINUX) && !defined(WIN32) 
+enum StreamType;		// @FFMPEG113: decrepated??
+// enum CodecID;		// @FFMPEG113: decrepated, is now automatically defined.
 #else
 #include "DVDDemuxers/DVDDemux.h"
 extern "C" {

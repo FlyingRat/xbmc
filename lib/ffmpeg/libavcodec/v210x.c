@@ -19,7 +19,10 @@
  */
 
 #include "avcodec.h"
+#include "internal.h"
 #include "libavutil/bswap.h"
+#include "libavutil/internal.h"
+#include "libavutil/mem.h"
 
 static av_cold int decode_init(AVCodecContext *avctx)
 {
@@ -27,15 +30,18 @@ static av_cold int decode_init(AVCodecContext *avctx)
         av_log(avctx, AV_LOG_ERROR, "v210x needs even width\n");
         return -1;
     }
-    avctx->pix_fmt = PIX_FMT_YUV422P16;
+    avctx->pix_fmt = AV_PIX_FMT_YUV422P16;
     avctx->bits_per_raw_sample= 10;
 
     avctx->coded_frame= avcodec_alloc_frame();
+    if (!avctx->coded_frame)
+        return AVERROR(ENOMEM);
 
     return 0;
 }
 
-static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPacket *avpkt)
+static int decode_frame(AVCodecContext *avctx, void *data, int *got_frame,
+                        AVPacket *avpkt)
 {
     int y=0;
     int width= avctx->width;
@@ -56,7 +62,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
     }
 
     pic->reference= 0;
-    if(avctx->get_buffer(avctx, pic) < 0)
+    if(ff_get_buffer(avctx, pic) < 0)
         return -1;
 
     ydst= (uint16_t *)pic->data[0];
@@ -116,7 +122,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         }
     }
 
-    *data_size=sizeof(AVFrame);
+    *got_frame = 1;
     *(AVFrame*)data= *avctx->coded_frame;
 
     return avpkt->size;
@@ -135,10 +141,10 @@ static av_cold int decode_close(AVCodecContext *avctx)
 AVCodec ff_v210x_decoder = {
     .name           = "v210x",
     .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = CODEC_ID_V210X,
+    .id             = AV_CODEC_ID_V210X,
     .init           = decode_init,
     .close          = decode_close,
     .decode         = decode_frame,
     .capabilities   = CODEC_CAP_DR1,
-    .long_name = NULL_IF_CONFIG_SMALL("Uncompressed 4:2:2 10-bit"),
+    .long_name      = NULL_IF_CONFIG_SMALL("Uncompressed 4:2:2 10-bit"),
 };
