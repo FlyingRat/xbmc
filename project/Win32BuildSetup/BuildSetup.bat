@@ -83,13 +83,12 @@ IF %comp%==vs2010 (
 	GOTO DIE
 )
 
-IF %graphics%==dx SET RELEASE=Release (DirectX)
-IF %graphics%==gl SET RELEASE=Release (OpenGL)
-set XBMC_EXE="..\VS2010Express\XBMC\%RELEASE%\XBMC.exe"
 
 ::
 :: Check for existing xbcmc.exe 
 :: 
+
+set XBMC_EXE="..\VS2010Express\XBMC\%RELEASE%\XBMC.exe"
 
 IF EXIST %XBMC_EXE% IF "%promptlevel%"=="prompt" (
 	ECHO ------------------------------------------------------------
@@ -144,6 +143,9 @@ IF %buildmingwlibs%==true (
 ::
 :: Build the XBMC solution with Visual Studio command line
 ::
+
+IF %graphics%==dx SET RELEASE=Release (DirectX)
+IF %graphics%==gl SET RELEASE=Release (OpenGL)
 
 IF %buildmode%==clean (
 	set BUILDFLAG=/rebuild
@@ -263,7 +265,7 @@ IF NOT EXIST "%NSISExePath%" (
 )
     
 IF NOT EXIST "%NSISExePath%" (
-  :: fails on localized windows (Default) becomes (Par Défaut)
+  :: fails on localized windows (Default) becomes (Par Dï¿½faut)
   FOR /F "tokens=3* delims=	" %%A IN ('REG QUERY "HKLM\Software\NSIS" /ve') DO SET NSISExePath=%%B
 )
 
