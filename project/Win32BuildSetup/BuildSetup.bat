@@ -336,5 +336,6 @@ GOTO VIEWLOG_EXE
   ECHO Press any key to exit...
   pause > NUL
   )
-  EXIT /B %exitcode%
   ENDLOCAL
+  EXIT /B %exitcode%
+
