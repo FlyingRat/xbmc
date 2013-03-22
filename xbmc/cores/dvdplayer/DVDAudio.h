@@ -30,8 +30,9 @@
 #include "cores/AudioEngine/Utils/AEChannelInfo.h"
 class IAEStream;
 
-#ifndef _LINUX
-enum CodecID;
+#if 1 == 0 		// @FFMPEG113: TODO - #if !defined(_LINUX) && !defined(WIN32) ??
+// #ifndef _LINUX	// @FFMPEG113: TODO - #if !defined(_LINUX) && !defined(WIN32) ??
+// enum CodecID;	// @FFMPEG113: decrepated, is now automatically defined.
 #else
 extern "C" {
 #if (defined USE_EXTERNAL_FFMPEG)

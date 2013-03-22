@@ -23,7 +23,7 @@
 #if (defined HAVE_CONFIG_H) && (!defined WIN32)
   #include "config.h"
 #endif
-// enum CodecID
+// enum CodecID // @FFMPEG113: decrepated, is now automatically defined.
 
 #include <string>
 #include <vector>

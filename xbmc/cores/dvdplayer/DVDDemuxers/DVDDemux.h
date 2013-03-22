@@ -35,7 +35,7 @@ class CDVDInputStream;
   #include "config.h"
 #endif
 #ifndef _LINUX
-enum CodecID;
+// enum CodecID; // @FFMPEG113: decrepated, is now automattically defined
 #include <libavcodec/avcodec.h>
 #else
 extern "C" {

@@ -1,0 +1,23 @@
+From 0bfc995fea64d50c51102facf0d53554f4e8dd07 Mon Sep 17 00:00:00 2001
+Date: Tue, 19 Feb 2013 02:47:21 +0000
+Subject: [PATCH] ffmpeg-fixed-missing-S_DVBSUB-subtitles
+
+---
+ libavformat/matroska.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/libavformat/matroska.c b/libavformat/matroska.c
+index 9ea904a..c34252b 100644
+--- a/libavformat/matroska.c
++++ b/libavformat/matroska.c
+@@ -65,6 +65,7 @@ const CodecTags ff_mkv_codec_tags[]={
+     {"S_ASS"            , AV_CODEC_ID_SSA},
+     {"S_SSA"            , AV_CODEC_ID_SSA},
+     {"S_VOBSUB"         , AV_CODEC_ID_DVD_SUBTITLE},
++    {"S_DVBSUB"         , AV_CODEC_ID_DVB_SUBTITLE},
+     {"S_HDMV/PGS"       , AV_CODEC_ID_HDMV_PGS_SUBTITLE},
+ 
+     {"V_DIRAC"          , AV_CODEC_ID_DIRAC},
+-- 
+1.7.10.4
+
