@@ -28,6 +28,7 @@
 #include "DVDClock.h"
 #include "DVDCodecs/DVDCodecs.h"
 #include "DVDCodecs/DVDCodecUtils.h"
+#include "DVDVideoPPFFmpeg.h" 		//@FFMPEG
 #if defined(_LINUX) || defined(_WIN32)
 #include "utils/CPUInfo.h"
 #endif
@@ -157,6 +158,7 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
   if(!m_dllAvUtil.Load()
   || !m_dllAvCodec.Load()
   || !m_dllSwScale.Load()
+  || !m_dllPostProc.Load() // @FFMPEG - resolve dllAvFilter dependencies
   || !m_dllAvFilter.Load()
   ) return false;
 
@@ -345,6 +347,7 @@ void CDVDVideoCodecFFmpeg::Dispose()
   m_dllAvCodec.Unload();
   m_dllAvUtil.Unload();
   m_dllAvFilter.Unload();
+  m_dllPostProc.Unload(); // @FFMPEG
 }
 
 void CDVDVideoCodecFFmpeg::SetDropState(bool bDrop)
