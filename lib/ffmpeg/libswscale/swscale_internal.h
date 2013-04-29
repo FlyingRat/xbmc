@@ -39,8 +39,6 @@
 
 #define YUVRGB_TABLE_HEADROOM 128
 
-#define FAST_BGR2YV12 // use 7-bit instead of 15-bit coefficients
-
 #define MAX_FILTER_SIZE 256
 
 #define DITHER1XBPP
@@ -360,6 +358,17 @@ typedef struct SwsContext {
     uint8_t *table_gU[256 + 2*YUVRGB_TABLE_HEADROOM];
     int table_gV[256 + 2*YUVRGB_TABLE_HEADROOM];
     uint8_t *table_bU[256 + 2*YUVRGB_TABLE_HEADROOM];
+    DECLARE_ALIGNED(16, int32_t, input_rgb2yuv_table)[16+40*4]; // This table can contain both C and SIMD formatted values, teh C vales are always at the XY_IDX points
+#define RY_IDX 0
+#define GY_IDX 1
+#define BY_IDX 2
+#define RU_IDX 3
+#define GU_IDX 4
+#define BU_IDX 5
+#define RV_IDX 6
+#define GV_IDX 7
+#define BV_IDX 8
+#define RGB2YUV_SHIFT 15
 
     int *dither_error[4];
 
@@ -371,6 +380,8 @@ typedef struct SwsContext {
     int dstRange;                 ///< 0 = MPG YUV range, 1 = JPG YUV range (destination image).
     int src0Alpha;
     int dst0Alpha;
+    int srcXYZ;
+    int dstXYZ;
     int yuv2rgb_y_offset;
     int yuv2rgb_y_coeff;
     int yuv2rgb_v2r_coeff;
@@ -464,6 +475,13 @@ typedef struct SwsContext {
 #endif
     int use_mmx_vfilter;
 
+/* pre defined color-spaces gamma */
+#define XYZ_GAMMA (2.6f)
+#define RGB_GAMMA (2.2f)
+    int16_t xyzgamma[4096];
+    int16_t rgbgamma[4096];
+    int16_t xyz2rgb_matrix[3][4];
+
     /* function pointers for swScale() */
     yuv2planar1_fn yuv2plane1;
     yuv2planarX_fn yuv2planeX;
@@ -489,9 +507,9 @@ typedef struct SwsContext {
      * internally to Y/UV.
      */
     /** @{ */
-    void (*readLumPlanar)(uint8_t *dst, const uint8_t *src[4], int width);
+    void (*readLumPlanar)(uint8_t *dst, const uint8_t *src[4], int width, int32_t *rgb2yuv);
     void (*readChrPlanar)(uint8_t *dstU, uint8_t *dstV, const uint8_t *src[4],
-                          int width);
+                          int width, int32_t *rgb2yuv);
     /** @} */
 
     /**

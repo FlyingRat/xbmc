@@ -22,6 +22,7 @@ cmp_shift=${12:-0}
 cmp_target=${13:-0}
 size_tolerance=${14:-0}
 cmp_unit=${15:-2}
+gen=${16:-no}
 
 outdir="tests/data/fate"
 outfile="${outdir}/${test}"
@@ -159,9 +160,49 @@ lavftest(){
     regtest lavf lavf tests/vsynth1
 }
 
+#FIXME should be removed
 lavfitest(){
     cleanfiles="tests/data/lavfi/${test#lavfi-}.nut"
     regtest lavfi lavfi tests/vsynth1
+}
+
+video_filter(){
+    filters=$1
+    shift
+    label=${test#filter-}
+    raw_src="${target_path}/tests/vsynth1/%02d.pgm"
+    printf '%-20s' $label
+    ffmpeg $DEC_OPTS -f image2 -vcodec pgmyuv -i $raw_src \
+        $FLAGS $ENC_OPTS -vf "$filters" -vcodec rawvideo $* -f nut md5:
+}
+
+pixdesc(){
+    pix_fmts="$(ffmpeg -pix_fmts list 2>/dev/null | awk 'NR > 8 && /^IO/ { print $2 }' | sort)"
+    for pix_fmt in $pix_fmts; do
+        test=$pix_fmt
+        video_filter "format=$pix_fmt,pixdesctest" -pix_fmt $pix_fmt
+    done
+}
+
+pixfmts(){
+    filter=${test#filter-pixfmts-}
+    filter_args=$1
+
+    showfiltfmts="$target_exec $target_path/libavfilter/filtfmts-test"
+    exclude_fmts=${outfile}${filter}_exclude_fmts
+    out_fmts=${outfile}${filter}_out_fmts
+
+    # exclude pixel formats which are not supported as input
+    ffmpeg -pix_fmts list 2>/dev/null | awk 'NR > 8 && /^\..\./ { print $2 }' | sort >$exclude_fmts
+    $showfiltfmts scale | awk -F '[ \r:]' '/^OUTPUT/{ print $5 }' | sort | comm -23 - $exclude_fmts >$out_fmts
+
+    pix_fmts=$($showfiltfmts $filter | awk -F '[ \r:]' '/^INPUT/{ print $5 }' | sort | comm -12 - $out_fmts)
+    for pix_fmt in $pix_fmts; do
+        test=$pix_fmt
+        video_filter "format=$pix_fmt,$filter=$filter_args" -pix_fmt $pix_fmt
+    done
+
+    rm $exclude_fmts $out_fmts
 }
 
 mkdir -p "$outdir"
@@ -197,9 +238,17 @@ fi
 
 echo "${test}:${sig:-$err}:$($base64 <$cmpfile):$($base64 <$errfile)" >$repfile
 
+if test $err != 0 && test $gen != "no" ; then
+    echo "GEN     $ref"
+    cp -f "$outfile" "$ref"
+    err=$?
+fi
+
 if test $err = 0; then
     rm -f $outfile $errfile $cmpfile $cleanfiles
-else
+elif test $gen = "no"; then
     echo "Test $test failed. Look at $errfile for details."
+else
+    echo "Updating reference failed, possibly no output file was generated."
 fi
 exit $err

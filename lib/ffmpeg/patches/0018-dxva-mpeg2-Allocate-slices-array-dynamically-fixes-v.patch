@@ -1,9 +1,16 @@
-From 40f4c15370f7027dc5422edcb10e8a3b7e58e83d Mon Sep 17 00:00:00 2001
-From: CrystalP <CrystalP@xbmc.org>
-Date: Wed, 5 Oct 2011 12:38:30 -0400
-Subject: [PATCH 18/24] dxva-mpeg2 Allocate slices array dynamically - fixes
- videos with > 175 slices. They used to result in
- images with a black bottom.
+From 334908abbeca87df9001aa56bc178c355578343c Mon Sep 17 00:00:00 2001
+From: lars@twinox.se
+Date: Fri, 19 Apr 2013 14:21:37 +0200
+Subject: [PATCH] Refactored for ffmpeg master head (rev 007989c)
+
+org patch: 0018-dxva-mpeg2-Allocate-slices-array-dynamically-fixes-v.patch
+
+>From 40f4c15370f7027dc5422edcb10e8a3b7e58e83d Mon Sep 17 00:00:00 2001
+>From: CrystalP <CrystalP@xbmc.org>
+>Date: Wed, 5 Oct 2011 12:38:30 -0400
+>Subject: [PATCH 18/24] dxva-mpeg2 Allocate slices array dynamically - fixes
+> videos with > 175 slices. They used to result in
+> images with a black bottom.
 
 sample on team ftp samples/PR471/too_many_slices.ts
 
@@ -14,12 +21,13 @@ appropriate to free the memory at the end.
 
 Alternative is to allocate the proper size straight away for a new frame,
 instead of realloc'ing for each slice.
+
 ---
- libavcodec/dxva2_mpeg2.c |   14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+ libavcodec/dxva2_mpeg2.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/libavcodec/dxva2_mpeg2.c b/libavcodec/dxva2_mpeg2.c
-index 951305d..8ba83b6 100644
+index 542f17c..0f245d1 100644
 --- a/libavcodec/dxva2_mpeg2.c
 +++ b/libavcodec/dxva2_mpeg2.c
 @@ -22,12 +22,12 @@
@@ -37,7 +45,7 @@ index 951305d..8ba83b6 100644
  
      const uint8_t          *bitstream;
      unsigned               bitstream_size;
-@@ -220,6 +220,8 @@ static int start_frame(AVCodecContext *avctx,
+@@ -220,6 +220,8 @@ static int dxva2_mpeg2_start_frame(AVCodecContext *avctx,
      fill_quantization_matrices(avctx, ctx, s, &ctx_pic->qm);
  
      ctx_pic->slice_count    = 0;
@@ -46,9 +54,9 @@ index 951305d..8ba83b6 100644
      ctx_pic->bitstream_size = 0;
      ctx_pic->bitstream      = NULL;
      return 0;
-@@ -232,9 +234,14 @@ static int decode_slice(AVCodecContext *avctx,
+@@ -232,9 +234,14 @@ static int dxva2_mpeg2_decode_slice(AVCodecContext *avctx,
      struct dxva2_picture_context *ctx_pic =
-         s->current_picture_ptr->f.hwaccel_picture_private;
+         s->current_picture_ptr->hwaccel_picture_private;
      unsigned position;
 +    DXVA_SliceInfo* slice;
  
@@ -62,14 +70,15 @@ index 951305d..8ba83b6 100644
  
      if (!ctx_pic->bitstream)
          ctx_pic->bitstream = buffer;
-@@ -258,6 +265,7 @@ static int end_frame(AVCodecContext *avctx)
-                                      &ctx_pic->pp, sizeof(ctx_pic->pp),
-                                      &ctx_pic->qm, sizeof(ctx_pic->qm),
-                                      commit_bitstream_and_slice_buffer);
+@@ -261,6 +268,8 @@ static int dxva2_mpeg2_end_frame(AVCodecContext *avctx)
+                                     commit_bitstream_and_slice_buffer);
+     if (!ret)
+         ff_mpeg_draw_horiz_band(s, 0, avctx->height);
++
 +    av_freep(ctx_pic->slice);
+     return ret;
  }
  
- AVHWAccel ff_mpeg2_dxva2_hwaccel = {
 -- 
-1.7.9.4
+1.8.0.1
 

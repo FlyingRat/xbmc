@@ -87,6 +87,7 @@ struct dxva_context {
      */
     unsigned report_id;
     unsigned last_slice_count;
+
 };
 
 /**
