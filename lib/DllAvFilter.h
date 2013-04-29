@@ -20,6 +20,9 @@
  *
  */
 
+// #define av_buffersrc_add_frame(ctx,frame) av_buffersrc_add_frame_flags(ctx, frame, 0);
+
+
 #if (defined HAVE_CONFIG_H) && (!defined WIN32)
   #include "config.h"
 #endif
@@ -56,6 +59,9 @@ extern "C" {
   #include "libavfilter/buffersink.h"
   #include "libavfilter/avcodec.h"
 #endif
+
+#include "libavfilter/buffersrc.h"  // @FFMPEGHEAD temp hack
+    
 }
 
 #if LIBAVFILTER_VERSION_MICRO >= 100
@@ -83,7 +89,8 @@ public:
   virtual int avfilter_graph_config(AVFilterGraph *graphctx, void *log_ctx)=0;
 #if (defined(LIBAVFILTER_FROM_LIBAV) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,5,0)) || \
     (defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,43,100))
-  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame *frame)=0;
+  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame *frame)=0;                   // @FFMPEGHEAD temp hack
+
 #elif defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(2,72,105)
   virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags)=0;
 #else
@@ -146,9 +153,11 @@ public:
   }
 #if (defined(LIBAVFILTER_FROM_LIBAV) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,5,0)) || \
     (defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,43,100))
-  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame* frame) { return ::av_buffersrc_add_frame(buffer_filter, frame); }
+  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame* frame) {
+                                        return ::av_buffersrc_add_frame_flags(buffer_filter, frame, 0); } // @FFMPEGHEAD temp hack
 #elif defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(2,72,105)
-  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame* frame, int flags) { return ::av_buffersrc_add_frame(buffer_filter, frame, flags); }
+  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame* frame, int flags) {
+                                        return ::av_buffersrc_add_frame_flags(buffer_filter, frame, 0); } // @FFMPEGHEAD temp hack
 #else
   virtual int av_vsrc_buffer_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags) { return ::av_vsrc_buffer_add_frame(buffer_filter, frame, flags); }
 #endif

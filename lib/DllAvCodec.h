@@ -41,6 +41,14 @@ extern "C" {
 #ifndef __GNUC__
 #pragma warning(disable:4244)
 #endif
+    
+#if !defined(CodecID)				// @FFMPEGHEAD TODO: CodecID decrepated and autodef removed, define/rename AVCodecID globaly?
+#define CodecID AVCodecID
+#endif
+
+#if !defined(AVCODEC_MAX_AUDIO_FRAME_SIZE)	// @FFMPEGHEAD TODO: stick with this or check for possible other solution?
+#define AVCODEC_MAX_AUDIO_FRAME_SIZE 192000	// 1 second of 48khz 32bit audio (defintion orginated from ffmpeg)
+#endif
 
 #if (defined USE_EXTERNAL_FFMPEG)
   #if (defined HAVE_LIBAVCODEC_AVCODEC_H)

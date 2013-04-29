@@ -34,6 +34,7 @@ class CDVDInputStream;
 #if (defined HAVE_CONFIG_H) && (!defined WIN32)
   #include "config.h"
 #endif
+
 #ifndef _LINUX
 // enum CodecID; // auto defined when neccesary
 #include <libavcodec/avcodec.h>
@@ -49,6 +50,10 @@ extern "C" {
   #include "libavcodec/avcodec.h"
 #endif
 }
+#endif
+
+#if !defined (CodecID)
+#define CodecID AVCodecID       //@FFMPEGHEAD TODO: CodecID decrepated and autodef removed, possible rename to AVCodecID glob
 #endif
 
 #ifndef __GNUC__

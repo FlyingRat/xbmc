@@ -30,6 +30,7 @@
 #include "cores/AudioEngine/Utils/AEChannelInfo.h"
 class IAEStream;
 
+
 extern "C" {
 #if (defined USE_EXTERNAL_FFMPEG)
   #if (defined HAVE_LIBAVCODEC_AVCODEC_H)
@@ -41,6 +42,10 @@ extern "C" {
   #include "libavcodec/avcodec.h"
 #endif
 }
+
+#if !defined (CodecID)
+#define CodecID AVCodecID       //@FFMPEGHEAD TODO: CodecID decrepated and autodef removed, possible rename to AVCodecID globaly?
+#endif
 
 typedef struct stDVDAudioFrame DVDAudioFrame;
 

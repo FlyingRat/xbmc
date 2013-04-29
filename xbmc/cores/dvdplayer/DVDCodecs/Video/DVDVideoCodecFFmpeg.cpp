@@ -18,6 +18,8 @@
  *
  */
 
+#define FF_API_AVFILTERBUFFER 1		// @FFMPEGHEAD enable av_buffersrc_buffer & co. TODO: check for alt sol.
+
 #include "system.h"
 #if (defined HAVE_CONFIG_H) && (!defined WIN32)
   #include "config.h"
