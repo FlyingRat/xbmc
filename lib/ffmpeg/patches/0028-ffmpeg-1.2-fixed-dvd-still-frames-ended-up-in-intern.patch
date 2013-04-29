@@ -1,18 +1,32 @@
-From a356770e3a73d79c9e4a451366930f557e3a2fa6 Mon Sep 17 00:00:00 2001
-From: Voyager1 <voyager@xbmc.org>
-Date: Sat, 13 Apr 2013 15:38:10 +0200
-Subject: [PATCH 4/4] ffmpeg 1.2 - fixed dvd still frames ended up in internal
- lavf
+From 009f5453a7f5f81724c47a4b85ccd69f29f6a5ae Mon Sep 17 00:00:00 2001
+From: Lars Hammarstrand <lars.hammarstrand@gmail.com>
+Date: Fri, 19 Apr 2013 14:56:20 +0200
+Subject: [PATCH] Refactored for ffmpeg master head (rev 007989c)
 
+>From 90a3ab0d766e3a026a37f7290f59abda30c4de32 Mon Sep 17 00:00:00 2001
+>From: elupus <elupus@xbmc.org>
+>Date: Tue, 17 Apr 2012 01:13:15 +0200
+>Subject: [PATCH] fixed: dvd still frames ended up in internal lavf buffer
+
+This is very hackish, but it's the old solution we had for dvd
+still frames. The problem is that the demuxer asks for probing
+of the codec in the mpeg stream. This causes lavf to read the
+whole menu structure into internal buffers. After which, it
+won't read from input stream anymore and no events triggers.
+
+The only proper fix to avoid this is to allow this situation
+in our navigator. This needs further work so that we can
+process HOP/ACTIVATION events in libdvdnav without advancing
+stream.
 ---
  libavformat/utils.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/libavformat/utils.c b/libavformat/utils.c
-index c3bd3d9..72f59d2 100644
+index b1acc3e..e8488b7 100644
 --- a/libavformat/utils.c
 +++ b/libavformat/utils.c
-@@ -706,7 +706,7 @@ no_packet:
+@@ -751,7 +751,7 @@ no_packet:
  
          if(end || av_log2(pd->buf_size) != av_log2(pd->buf_size - pkt->size)){
              int score= set_codec_from_probe_data(s, st, pd);
@@ -22,5 +36,5 @@ index c3bd3d9..72f59d2 100644
                  pd->buf_size=0;
                  av_freep(&pd->buf);
 -- 
-1.8.0.msysgit.0
+1.8.0.1
 
