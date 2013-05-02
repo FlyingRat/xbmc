@@ -1,6 +1,5 @@
-#!/bin/bash
+#!/bin/bash -x
 
-MAKEFLAGS=""
 
 if [ "$1" == "clean" ]
 then
@@ -11,9 +10,7 @@ then
   mingw32-make distclean
 fi
 
-if [ $NUMBER_OF_PROCESSORS > 1 ]; then
-  MAKEFLAGS=-j$NUMBER_OF_PROCESSORS
-fi
+MAKEFLAGS=-j3
 
 if [ ! -d .libs ]; then
   mkdir .libs
@@ -47,16 +44,19 @@ OPTIONS="
 --enable-runtime-cpudetect \
 --enable-avfilter \
 --enable-dxva2 \
+--cpu=i686 \
+--enable-libopus \
+--enable-libspeex \
 --disable-doc"
 
-./configure --extra-cflags="-fno-common -Iinclude-xbmc-win32/dxva2 -DNDEBUG" --extra-ldflags="-L/xbmc/system/players/dvdplayer" ${OPTIONS} &&
+# ./configure --extra-cflags="-fno-common -Iinclude-xbmc-win32/dxva2 -DNDEBUG" --extra-ldflags="-L/xbmc/system/players/dvdplayer" ${OPTIONS} &&
  
-mingw32-make $MAKEFLAGS &&
+# mingw32-make $MAKEFLAGS &&
 cp lib*/*.dll .libs/ &&
-cp .libs/avcodec-54.dll /xbmc/system/players/dvdplayer/ &&
-cp .libs/avformat-54.dll /xbmc/system/players/dvdplayer/ &&
-cp .libs/avutil-52.dll /xbmc/system/players/dvdplayer/ &&
-cp .libs/avfilter-3.dll /xbmc/system/players/dvdplayer/ &&
-cp .libs/postproc-52.dll /xbmc/system/players/dvdplayer/ &&
-cp .libs/swresample-0.dll /xbmc/system/players/dvdplayer/ &&
-cp .libs/swscale-2.dll /xbmc/system/players/dvdplayer/
+cp .libs/avcodec.dll /xbmc/system/players/dvdplayer/ &&
+cp .libs/avformat.dll /xbmc/system/players/dvdplayer/ &&
+cp .libs/avutil.dll /xbmc/system/players/dvdplayer/ &&
+cp .libs/avfilter.dll /xbmc/system/players/dvdplayer/ &&
+cp .libs/postproc.dll /xbmc/system/players/dvdplayer/ &&
+cp .libs/swresample.dll /xbmc/system/players/dvdplayer/ &&
+cp .libs/swscale.dll /xbmc/system/players/dvdplayer/
