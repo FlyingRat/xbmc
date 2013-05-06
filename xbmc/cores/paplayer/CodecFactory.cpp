@@ -109,6 +109,8 @@ ICodec* CodecFactory::CreateCodec(const CStdString& strFileType)
 #endif
   else if (strFileType.Equals("tta"))
     return new DVDPlayerCodec();
+  else if (strFileType.Equals("opus") || strFileType.Equals("spx"))
+    return new DVDPlayerCodec();
 
   return NULL;
 }
