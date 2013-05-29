@@ -407,6 +407,12 @@ AC_ARG_ENABLE([ffmpeg_libvorbis],
   [use_ffmpeg_libvorbis=$enableval],
   [use_ffmpeg_libvorbis=no])
 
+AC_ARG_ENABLE([ffmpeg_libsoxr],
+  [AS_HELP_STRING([--enable-ffmpeg-libsoxr],
+  [enable FFmpeg SoX Resampler library libsoxr (default is no)])],
+  [use_ffmpeg_libsoxr=$enableval],
+  [use_ffmpeg_libsoxr=no])
+
 AC_ARG_ENABLE([dvdcss],
   [AS_HELP_STRING([--enable-dvdcss],
   [enable DVDCSS support (default is yes)])],
@@ -2376,6 +2382,12 @@ if test "$host_vendor" = "apple" ; then
   LIBS="$LIBS -L\$(abs_top_srcdir)/lib/ffmpeg/libavutil -lavutil"
   LIBS="$LIBS -L\$(abs_top_srcdir)/lib/ffmpeg/libpostproc -lpostproc"
   LIBS="$LIBS -L\$(abs_top_srcdir)/lib/ffmpeg/libswscale -lswscale"
+
+  # Check for SoX Resampler library libsoxr usage
+  if test "$use_ffmpeg_libsoxr" = "yes"; then
+      LIBS="$LIBS -L\$(abs_top_srcdir)/lib/libsox/src -lsoxr"
+  fi
+ 
 fi
 
 USE_PVR_ADDONS=0
@@ -2582,7 +2594,16 @@ fi
 ])
 ])
 
+XB_CONFIG_MODULE([lib/libsoxr], [
+    ./configure
+], [0])
+
 XB_CONFIG_MODULE([lib/ffmpeg], [
+  # Check for SoX Resampler library libsoxr usage
+  if test "$use_ffmpeg_libsoxr" = "yes"; then
+    FFMPEG_EXTRACFLAGS="$FFMPEG_EXTRACFLAGS -I\$(abs_top_srcdir)/lib/libsox/src"
+  fi
+
   if test "$host_vendor" = "apple" ; then
     ffmpg_config="--target-os=$ffmpeg_target_os"
     # handle disables first, we do individual enables later
@@ -2618,6 +2639,11 @@ XB_CONFIG_MODULE([lib/ffmpeg], [
       ffmpg_config="$ffmpg_config --enable-libvorbis --enable-muxer=ogg --enable-encoder=libvorbis"
     else
       ffmpg_config="$ffmpg_config --disable-libvorbis"
+    fi
+
+    # Check for SoX Resampler library libsoxr usage
+    if test "$use_ffmpeg_libsoxr" = "yes"; then
+      ffmpg_config="$ffmpg_config --enable-libsoxr"
     fi
 
     # handle individual enables
@@ -2675,6 +2701,7 @@ XB_CONFIG_MODULE([lib/ffmpeg], [
       --enable-encoder=ac3 \
       --enable-encoder=aac \
       `if test "$use_ffmpeg_libvorbis" = "yes"; then echo --enable-libvorbis --enable-muxer=ogg --enable-encoder=libvorbis; else echo --disable-libvorbis; fi` \
+      `if test "$use_ffmpeg_libsoxr" = "yes"; then echo --enable-libsoxr; fi` \
       --disable-decoder=mpeg_xvmc \
       --disable-devices \
       --disable-ffprobe \
