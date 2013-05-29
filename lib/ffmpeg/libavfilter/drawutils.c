@@ -37,12 +37,22 @@ int ff_fill_rgba_map(uint8_t *rgba_map, enum AVPixelFormat pix_fmt)
     case AV_PIX_FMT_ARGB:  rgba_map[ALPHA] = 0; rgba_map[RED  ] = 1; rgba_map[GREEN] = 2; rgba_map[BLUE ] = 3; break;
     case AV_PIX_FMT_0BGR:
     case AV_PIX_FMT_ABGR:  rgba_map[ALPHA] = 0; rgba_map[BLUE ] = 1; rgba_map[GREEN] = 2; rgba_map[RED  ] = 3; break;
+    case AV_PIX_FMT_RGB48LE:
+    case AV_PIX_FMT_RGB48BE:
+    case AV_PIX_FMT_RGBA64BE:
+    case AV_PIX_FMT_RGBA64LE:
     case AV_PIX_FMT_RGB0:
     case AV_PIX_FMT_RGBA:
     case AV_PIX_FMT_RGB24: rgba_map[RED  ] = 0; rgba_map[GREEN] = 1; rgba_map[BLUE ] = 2; rgba_map[ALPHA] = 3; break;
+    case AV_PIX_FMT_BGR48LE:
+    case AV_PIX_FMT_BGR48BE:
+    case AV_PIX_FMT_BGRA64BE:
+    case AV_PIX_FMT_BGRA64LE:
     case AV_PIX_FMT_BGRA:
     case AV_PIX_FMT_BGR0:
     case AV_PIX_FMT_BGR24: rgba_map[BLUE ] = 0; rgba_map[GREEN] = 1; rgba_map[RED  ] = 2; rgba_map[ALPHA] = 3; break;
+    case AV_PIX_FMT_GBRAP:
+    case AV_PIX_FMT_GBRP:  rgba_map[GREEN] = 0; rgba_map[BLUE ] = 1; rgba_map[RED  ] = 2; rgba_map[ALPHA] = 3; break;
     default:                    /* unsupported */
         return AVERROR(EINVAL);
     }
@@ -141,7 +151,7 @@ int ff_draw_init(FFDrawContext *draw, enum AVPixelFormat format, unsigned flags)
 
     if (!desc->name)
         return AVERROR(EINVAL);
-    if (desc->flags & ~(PIX_FMT_PLANAR | PIX_FMT_RGB | PIX_FMT_PSEUDOPAL | PIX_FMT_ALPHA))
+    if (desc->flags & ~(AV_PIX_FMT_FLAG_PLANAR | AV_PIX_FMT_FLAG_RGB | AV_PIX_FMT_FLAG_PSEUDOPAL | AV_PIX_FMT_FLAG_ALPHA))
         return AVERROR(ENOSYS);
     for (i = 0; i < desc->nb_components; i++) {
         c = &desc->comp[i];
@@ -166,7 +176,7 @@ int ff_draw_init(FFDrawContext *draw, enum AVPixelFormat format, unsigned flags)
     draw->format    = format;
     draw->nb_planes = nb_planes;
     memcpy(draw->pixelstep, pixelstep, sizeof(draw->pixelstep));
-    if (nb_planes >= 3 && !(desc->flags & PIX_FMT_RGB)) {
+    if (nb_planes >= 3 && !(desc->flags & AV_PIX_FMT_FLAG_RGB)) {
         draw->hsub[1] = draw->hsub[2] = draw->hsub_max = desc->log2_chroma_w;
         draw->vsub[1] = draw->vsub[2] = draw->vsub_max = desc->log2_chroma_h;
     }
@@ -183,7 +193,7 @@ void ff_draw_color(FFDrawContext *draw, FFDrawColor *color, const uint8_t rgba[4
 
     if (rgba != color->rgba)
         memcpy(color->rgba, rgba, sizeof(color->rgba));
-    if ((draw->desc->flags & PIX_FMT_RGB) && draw->nb_planes == 1 &&
+    if ((draw->desc->flags & AV_PIX_FMT_FLAG_RGB) && draw->nb_planes == 1 &&
         ff_fill_rgba_map(rgba_map, draw->format) >= 0) {
         for (i = 0; i < 4; i++)
             color->comp[0].u8[rgba_map[i]] = rgba[i];

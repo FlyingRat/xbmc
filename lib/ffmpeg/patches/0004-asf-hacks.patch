@@ -1,19 +1,27 @@
-From 16ed0150800958b4ca544fd380bda92f21393555 Mon Sep 17 00:00:00 2001
-From: Joakim Plate <elupus@ecce.se>
-Date: Mon, 12 Sep 2011 21:37:17 +0200
-Subject: [PATCH 04/24] asf hacks
+From 2fe1f415a5506b0338cde1dfc461f08f04d1f792 Mon Sep 17 00:00:00 2001
+From: lars@twinox.se
+Date: Fri, 19 Apr 2013 13:34:25 +0200
+Subject: [PATCH] Refactored for ffmpeg master head (rev 007989c)
+
+org patch: 0004-asf-hacks.patch 
+
+> From 16ed0150800958b4ca544fd380bda92f21393555 Mon Sep 17 00:00:00 2001
+> From: Joakim Plate <elupus@ecce.se>
+> Date: Mon, 12 Sep 2011 21:37:17 +0200
+> Subject: [PATCH 04/24] asf hacks
+
 
 ---
- libavformat/asfdec.c |   11 +++++++++++
+ libavformat/asfdec.c | 11 +++++++++++
  1 file changed, 11 insertions(+)
 
 diff --git a/libavformat/asfdec.c b/libavformat/asfdec.c
-index a62bab3..7db3bd8 100644
+index 1d7f26c..27f6cb5 100644
 --- a/libavformat/asfdec.c
 +++ b/libavformat/asfdec.c
-@@ -1277,9 +1277,20 @@ static int asf_read_seek(AVFormatContext *s, int stream_index, int64_t pts, int
+@@ -1500,9 +1500,20 @@ static int asf_read_seek(AVFormatContext *s, int stream_index,
      ASFContext *asf = s->priv_data;
-     AVStream *st = s->streams[stream_index];
+     AVStream *st    = s->streams[stream_index];
  
 +    if (pts == 0) {
 +      // this is a hack since av_gen_search searches the entire file in this case
@@ -30,8 +38,9 @@ index a62bab3..7db3bd8 100644
 +        return -1;
 +
      /* Try using the protocol's read_seek if available */
-     if(s->pb) {
+     if (s->pb) {
          int ret = avio_seek_time(s->pb, stream_index, pts, flags);
+
 -- 
-1.7.9.4
+1.8.0.1
 

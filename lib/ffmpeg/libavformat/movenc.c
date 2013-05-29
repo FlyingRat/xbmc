@@ -62,6 +62,7 @@ static const AVOption options[] = {
     { "frag_size", "Maximum fragment size", offsetof(MOVMuxContext, max_fragment_size), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM},
     { "ism_lookahead", "Number of lookahead entries for ISM files", offsetof(MOVMuxContext, ism_lookahead), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM},
     { "use_editlist", "use edit list", offsetof(MOVMuxContext, use_editlist), AV_OPT_TYPE_INT, {.i64 = -1}, -1, 1, AV_OPT_FLAG_ENCODING_PARAM},
+    { "video_track_timescale", "set timescale of all video tracks", offsetof(MOVMuxContext, video_track_timescale), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM},
     { NULL },
 };
 
@@ -2505,9 +2506,11 @@ static int mov_write_tfhd_tag(AVIOContext *pb, MOVTrack *track,
 
     /* Don't set a default sample size, the silverlight player refuses
      * to play files with that set. Don't set a default sample duration,
-     * WMP freaks out if it is set. */
+     * WMP freaks out if it is set. Don't set a base data offset, PIFF
+     * file format says it MUST NOT be set. */
     if (track->mode == MODE_ISM)
-        flags &= ~(MOV_TFHD_DEFAULT_SIZE | MOV_TFHD_DEFAULT_DURATION);
+        flags &= ~(MOV_TFHD_DEFAULT_SIZE | MOV_TFHD_DEFAULT_DURATION |
+                   MOV_TFHD_BASE_DATA_OFFSET);
 
     avio_wb32(pb, 0); /* size placeholder */
     ffio_wfourcc(pb, "tfhd");
@@ -3173,6 +3176,14 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
         memcpy(trk->vos_data, enc->extradata, trk->vos_len);
     }
 
+    if (enc->codec_id == AV_CODEC_ID_AAC && pkt->size > 2 &&
+        (AV_RB16(pkt->data) & 0xfff0) == 0xfff0) {
+        if (!s->streams[pkt->stream_index]->nb_frames) {
+            av_log(s, AV_LOG_ERROR, "malformated aac bitstream, use -absf aac_adtstoasc\n");
+            return -1;
+        }
+        av_log(s, AV_LOG_WARNING, "aac bitstream error\n");
+    }
     if (enc->codec_id == AV_CODEC_ID_H264 && trk->vos_len > 0 && *(uint8_t *)trk->vos_data != 1) {
         /* from x264 or from bytestream h264 */
         /* nal reformating needed */
@@ -3183,10 +3194,6 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
         } else {
             size = ff_avc_parse_nal_units(pb, pkt->data, pkt->size);
         }
-    } else if (enc->codec_id == AV_CODEC_ID_AAC && pkt->size > 2 &&
-               (AV_RB16(pkt->data) & 0xfff0) == 0xfff0) {
-        av_log(s, AV_LOG_ERROR, "malformated aac bitstream, use -absf aac_adtstoasc\n");
-        return -1;
     } else {
         avio_write(pb, pkt->data, size);
     }
@@ -3618,9 +3625,13 @@ static int mov_write_header(AVFormatContext *s)
                 }
                 track->height = track->tag>>24 == 'n' ? 486 : 576;
             }
-            track->timescale = st->codec->time_base.den;
-            while(track->timescale < 10000)
-                track->timescale *= 2;
+            if (mov->video_track_timescale) {
+                track->timescale = mov->video_track_timescale;
+            } else {
+                track->timescale = st->codec->time_base.den;
+                while(track->timescale < 10000)
+                    track->timescale *= 2;
+            }
             if (track->mode == MODE_MOV && track->timescale > 100000)
                 av_log(s, AV_LOG_WARNING,
                        "WARNING codec timebase is very high. If duration is too long,\n"
@@ -3950,7 +3961,7 @@ AVOutputFormat ff_mov_muxer = {
     .write_header      = mov_write_header,
     .write_packet      = mov_write_packet,
     .write_trailer     = mov_write_trailer,
-    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH,
+    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH | AVFMT_TS_NEGATIVE,
     .codec_tag         = (const AVCodecTag* const []){
         ff_codec_movvideo_tags, ff_codec_movaudio_tags, 0
     },
@@ -3969,7 +3980,7 @@ AVOutputFormat ff_tgp_muxer = {
     .write_header      = mov_write_header,
     .write_packet      = mov_write_packet,
     .write_trailer     = mov_write_trailer,
-    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH,
+    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH | AVFMT_TS_NEGATIVE,
     .codec_tag         = (const AVCodecTag* const []){ codec_3gp_tags, 0 },
     .priv_class        = &tgp_muxer_class,
 };
@@ -3988,7 +3999,7 @@ AVOutputFormat ff_mp4_muxer = {
     .write_header      = mov_write_header,
     .write_packet      = mov_write_packet,
     .write_trailer     = mov_write_trailer,
-    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH,
+    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH | AVFMT_TS_NEGATIVE,
     .codec_tag         = (const AVCodecTag* const []){ ff_mp4_obj_type, 0 },
     .priv_class        = &mp4_muxer_class,
 };
@@ -4023,7 +4034,7 @@ AVOutputFormat ff_tg2_muxer = {
     .write_header      = mov_write_header,
     .write_packet      = mov_write_packet,
     .write_trailer     = mov_write_trailer,
-    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH,
+    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH | AVFMT_TS_NEGATIVE,
     .codec_tag         = (const AVCodecTag* const []){ codec_3gp_tags, 0 },
     .priv_class        = &tg2_muxer_class,
 };

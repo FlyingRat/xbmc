@@ -1,4 +1,4 @@
-FATE_SAMPLES_DEMUX += fate-avio-direct
+FATE_SAMPLES_DEMUX-$(call DEMDEC, AVI, FRAPS) += fate-avio-direct
 fate-avio-direct: CMD = framecrc -avioflags direct -i $(SAMPLES)/fraps/fraps-v5-bouncing-balls-partial.avi -avioflags direct
 
 FATE_SAMPLES_DEMUX-$(CONFIG_AAC_DEMUXER) += fate-adts-demux
@@ -40,6 +40,9 @@ fate-lmlm4-demux: CMD = framecrc -i $(SAMPLES)/lmlm4/LMLM4_CIFat30fps.divx -t 3 
 FATE_SAMPLES_DEMUX-$(CONFIG_XA_DEMUXER) += fate-maxis-xa
 fate-maxis-xa: CMD = framecrc -i $(SAMPLES)/maxis-xa/SC2KBUG.XA -frames:a 30 -c:a copy
 
+FATE_SAMPLES_DEMUX-$(CONFIG_MATROSKA_DEMUXER) += fate-mkv
+fate-mkv: CMD = framecrc -i $(SAMPLES)/mkv/test7_cut.mkv -c copy
+
 FATE_SAMPLES_DEMUX-$(CONFIG_MTV_DEMUXER) += fate-mtv
 fate-mtv: CMD = framecrc -i $(SAMPLES)/mtv/comedian_auto-partial.mtv -c copy
 
@@ -63,6 +66,12 @@ fate-paf-demux: CMD = framecrc -i $(SAMPLES)/paf/hod1-partial.paf -vcodec copy -
 
 FATE_SAMPLES_DEMUX-$(CONFIG_PMP_DEMUXER) += fate-pmp-demux
 fate-pmp-demux: CMD = framecrc -i $(SAMPLES)/pmp/demo.pmp -vn -c:a copy
+
+FATE_SAMPLES_DEMUX-$(CONFIG_RSD_DEMUXER) += fate-rsd-demux
+fate-rsd-demux: CMD = crc -i $(SAMPLES)/rsd/hum01_partial.rsd -c:a copy
+
+FATE_SAMPLES_DEMUX-$(CONFIG_REDSPARK_DEMUXER) += fate-redspark-demux
+fate-redspark-demux: CMD = crc -i $(SAMPLES)/redspark/jingle04_partial.rsd -c:a copy
 
 FATE_SAMPLES_DEMUX-$(CONFIG_STR_DEMUXER) += fate-psx-str-demux
 fate-psx-str-demux: CMD = framecrc -i $(SAMPLES)/psx-str/descent-partial.str -c copy
