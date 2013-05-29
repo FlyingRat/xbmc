@@ -7879,6 +7879,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = NO;
+				ENABLE_OPENMP_SUPPORT = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_AUTO_VECTORIZATION = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -7941,6 +7942,7 @@
 					"\"$(SRCROOT)/lib/ffmpeg/libswscale\"",
 					"\"$(SRCROOT)/xbmc/interfaces/python\"",
 					"\"$(SRCROOT)/xbmc/interfaces/legacy\"",
+					"\"$(SRCROOT)/lib/libsoxr/src\"",
 				);
 				LINK_WITH_STANDARD_LIBRARIES = YES;
 				OTHER_CPLUSPLUSFLAGS = (
@@ -7990,6 +7992,7 @@
 					"-ltag",
 					"-L$XBMC_DEPENDS/lib/mysql",
 					"-lmysqlclient",
+					"-lsoxr",
 				);
 				PRODUCT_NAME = XBMC;
 				USER_HEADER_SEARCH_PATHS = "$XBMC_DEPENDS/include $XBMC_DEPENDS/include/libcec $XBMC_DEPENDS/include/mysql $XBMC_DEPENDS/include/freetype2 $XBMC_DEPENDS/include/python2.6";
@@ -8007,6 +8010,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_OPENMP_SUPPORT = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_AUTO_VECTORIZATION = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8071,6 +8075,7 @@
 					"\"$(SRCROOT)/lib/ffmpeg/libswscale\"",
 					"\"$(SRCROOT)/xbmc/interfaces/python\"",
 					"\"$(SRCROOT)/xbmc/interfaces/legacy\"",
+					"\"$(SRCROOT)/lib/libsoxr/src\"",
 				);
 				LINK_WITH_STANDARD_LIBRARIES = YES;
 				OTHER_CPLUSPLUSFLAGS = (
@@ -8120,6 +8125,7 @@
 					"-ltag",
 					"-L$XBMC_DEPENDS/lib/mysql",
 					"-lmysqlclient",
+					"-lsoxr",
 				);
 				PRODUCT_NAME = XBMC;
 				USER_HEADER_SEARCH_PATHS = "$XBMC_DEPENDS/include $XBMC_DEPENDS/include/libcec $XBMC_DEPENDS/include/mysql $XBMC_DEPENDS/include/freetype2 $XBMC_DEPENDS/include/python2.6";
