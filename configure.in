@@ -2385,7 +2385,7 @@ if test "$host_vendor" = "apple" ; then
 
   # Check for SoX Resampler library libsoxr usage
   if test "$use_ffmpeg_libsoxr" = "yes"; then
-      LIBS="$LIBS -L\$(abs_top_srcdir)/lib/libsox/src -lsoxr"
+      LIBS="$LIBS -L\$(abs_top_srcdir)/lib/libsoxr/src -lsoxr"
   fi
  
 fi
@@ -2599,9 +2599,11 @@ XB_CONFIG_MODULE([lib/libsoxr], [
 ], [0])
 
 XB_CONFIG_MODULE([lib/ffmpeg], [
+
   # Check for SoX Resampler library libsoxr usage
   if test "$use_ffmpeg_libsoxr" = "yes"; then
-    FFMPEG_EXTRACFLAGS="$FFMPEG_EXTRACFLAGS -I\$(abs_top_srcdir)/lib/libsox/src"
+    FFMPEG_EXTRACFLAGS="$FFMPEG_EXTRACFLAGS -I${ac_abs_confdir}/lib/libsoxr/src"
+    LDFLAGS="$LDFLAGS -L${ac_abs_confdir}/lib/libsoxr/src -fopenmp"
   fi
 
   if test "$host_vendor" = "apple" ; then
